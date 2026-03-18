@@ -1,26 +1,24 @@
-import LocalizedClientLink from "@/components/molecules/LocalizedLink/LocalizedLink"
-import { ArrowUpIcon } from "@/icons"
-import { Metadata } from "next"
+import Link from 'next/link'
+import { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: "404",
-  description: "Something went wrong",
+  title: 'Pagina no encontrada',
+  description: 'La pagina que buscas no existe.',
 }
 
 export default function NotFound() {
   return (
     <div className="flex flex-col gap-4 items-center justify-center py-24">
-      <h1 className="text-2xl-semi text-ui-fg-base">Page not found</h1>
-      <p className="text-small-regular text-ui-fg-base">
-        The page you tried to access does not exist.
+      <h1 className="text-2xl font-bold">Pagina no encontrada</h1>
+      <p className="text-gray-500">
+        La pagina que intentas visitar no existe.
       </p>
-      <LocalizedClientLink className="flex gap-x-1 items-center group" href="/">
-        Go to frontpage
-        <ArrowUpIcon
-          className="group-hover:rotate-45 ease-in-out duration-150"
-          color="var(--fg-interactive)"
-        />
-      </LocalizedClientLink>
+      <Link
+        className="inline-block border-2 border-black px-6 py-3 font-bold uppercase hover:bg-black hover:text-white transition-colors"
+        href="/"
+      >
+        Ir al inicio
+      </Link>
     </div>
   )
 }
