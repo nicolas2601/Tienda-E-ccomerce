@@ -29,6 +29,9 @@ importers:
       embla-carousel-react:
         specifier: ^8.5.2
         version: 8.6.0(react@19.2.4)
+      jose:
+        specifier: ^6.2.2
+        version: 6.2.2
       js-cookie:
         specifier: ^3.0.5
         version: 3.0.5
@@ -1385,6 +1388,9 @@ packages:
   jiti@1.21.7:
     resolution: {integrity: sha512-/imKNG4EbWNrVjoNC/1H5/9GFy+tqjGBHCaSsN+P2RnPqjsLmv6UD3Ej+Kj8nBWaRAwyk7kK5ZUc+OEatnTR3A==}
     hasBin: true
+
+  jose@6.2.2:
+    resolution: {integrity: sha512-d7kPDd34KO/YnzaDOlikGpOurfF0ByC2sEV4cANCtdqLlTfBlw2p14O/5d/zv40gJPbIQxfES3nSx1/oYNyuZQ==}
 
   js-cookie@3.0.5:
     resolution: {integrity: sha512-cEiJEAEoIbWfCZYKWhVwFuvPX1gETRYPw6LlaTKoxD3s2AkXzkCjnp6h0V77ozyqj0jakteJ4YqDJT830+lVGw==}
@@ -3518,6 +3524,8 @@ snapshots:
       set-function-name: 2.0.2
 
   jiti@1.21.7: {}
+
+  jose@6.2.2: {}
 
   js-cookie@3.0.5: {}
 
