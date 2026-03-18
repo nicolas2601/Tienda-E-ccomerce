@@ -10,6 +10,10 @@ export default {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['var(--font-inter)', 'Inter', 'system-ui', 'sans-serif'],
+        display: ['var(--font-playfair)', 'Playfair Display', 'Georgia', 'serif'],
+      },
       backgroundColor: {
         primary: "rgba(var(--bg-primary))",
         secondary: "rgba(var(--bg-secondary))",

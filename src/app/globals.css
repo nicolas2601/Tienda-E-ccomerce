@@ -112,13 +112,11 @@ button:disabled svg path {
 .multi-gradient {
   background: conic-gradient(
     from 180deg at 50% 50%,
-    #00438f 0deg,
-    #4da0ff 50.4deg,
-    #17a34a 108deg,
-    #ffbf38 165.6deg,
-    #c56a09 217.8deg,
-    #d92d20 282.6deg,
-    #00438f 360deg
+    #B3D9FF 0deg,
+    #B8E8D0 90deg,
+    #FFF3B0 180deg,
+    #FFDAB9 270deg,
+    #FFB5C2 360deg
   );
 }
 .no-scrollbar::-webkit-scrollbar {
