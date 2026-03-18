@@ -1,5 +1,4 @@
 import { supabase } from '@/lib/supabase'
-import { Hero } from '@/components/sections'
 import type { Metadata } from 'next'
 import Script from 'next/script'
 import { headers } from 'next/headers'
@@ -122,15 +121,54 @@ export default async function HomePage() {
       />
 
       {/* Hero Section */}
-      <Hero
-        image="/images/hero/Image.jpg"
-        heading="Moda importada de Canada para toda la familia"
-        paragraph="Descubre nuestra coleccion de ropa y accesorios de las mejores marcas canadienses. Envios a toda Colombia."
-        buttons={[
-          { label: 'Ver productos', path: '/productos' },
-          { label: 'Ofertas', path: '/categorias/ofertas' },
-        ]}
-      />
+      <section className="w-full container mt-5">
+        <div className="flex flex-col lg:flex-row text-primary">
+          <div className="relative w-full order-2 lg:order-1 aspect-[7/6] overflow-hidden rounded-sm">
+            <video
+              autoPlay
+              muted
+              loop
+              playsInline
+              className="w-full h-full object-cover"
+            >
+              <source src="/videos/Familia.mp4" type="video/mp4" />
+            </video>
+          </div>
+          <div className="w-full lg:order-2">
+            <div className="border rounded-sm w-full px-6 flex items-end h-[calc(100%-144px)]">
+              <div>
+                <h2 className="font-bold mb-6 uppercase display-md max-w-[652px] text-4xl md:text-5xl leading-tight">
+                  Moda importada de Canada para toda la familia
+                </h2>
+                <p className="text-lg mb-8">
+                  Descubre nuestra coleccion de ropa y accesorios de las mejores
+                  marcas canadienses. Envios a toda Colombia.
+                </p>
+              </div>
+            </div>
+            <div className="h-[72px] lg:h-[144px] flex font-bold uppercase">
+              <Link
+                href="/productos"
+                className="group flex border rounded-sm h-full w-1/2 bg-content hover:bg-action hover:text-tertiary transition-all duration-300 p-6 justify-between items-end"
+              >
+                <span>
+                  <span className="group-hover:inline-flex hidden">#</span>
+                  Ver productos
+                </span>
+              </Link>
+              <Link
+                href="/categorias/ofertas"
+                className="group flex border rounded-sm h-full w-1/2 bg-content hover:bg-action hover:text-tertiary transition-all duration-300 p-6 justify-between items-end"
+              >
+                <span>
+                  <span className="group-hover:inline-flex hidden">#</span>
+                  Ofertas
+                </span>
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* Categories Section */}
       {categories && categories.length > 0 && (
