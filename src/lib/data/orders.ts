@@ -1,203 +1,128 @@
-'use server';
+'use server'
 
-import { HttpTypes } from '@medusajs/types';
+import { supabase } from '@/lib/supabase'
+import type { Order, Database } from '@/types/database'
 
-import { SellerProps } from '@/types/seller';
+type OrderInsert = Database['public']['Tables']['orders']['Insert']
+type OrderUpdate = Database['public']['Tables']['orders']['Update']
 
-import { sdk } from '../config';
-import medusaError from '../helpers/medusa-error';
-import { getAuthHeaders, getCacheOptions } from './cookies';
+export interface ListOrdersParams {
+  user_id?: string
+  status?: Order['status']
+  payment_status?: Order['payment_status']
+  page?: number
+  limit?: number
+}
 
-export const retrieveOrderSet = async (id: string) => {
-  const headers = {
-    ...(await getAuthHeaders())
-  };
+export interface ListOrdersResult {
+  orders: Order[]
+  count: number
+}
 
-  return sdk.client
-    .fetch<any>(`/store/order-set/${id}`, {
-      method: 'GET',
-      headers,
-      cache: 'no-cache'
-    })
-    .then(({ order_set }) => order_set)
-    .catch(err => medusaError(err));
-};
+export async function createOrder(
+  data: OrderInsert
+): Promise<Order> {
+  const { data: order, error } = await supabase
+    .from('orders')
+    .insert(data)
+    .select()
+    .single()
 
-export const retrieveOrder = async (id: string) => {
-  const headers = {
-    ...(await getAuthHeaders())
-  };
-
-  const next = {
-    ...(await getCacheOptions('orders'))
-  };
-
-  return sdk.client
-    .fetch<HttpTypes.StoreOrderResponse & { seller: SellerProps }>(`/store/orders/${id}`, {
-      method: 'GET',
-      query: {
-        fields:
-          '*payment_collections.payments,*items,*items.metadata,*items.variant,*items.product,*seller,*order_set'
-      },
-      headers,
-      next,
-      cache: 'force-cache'
-    })
-    .then(({ order }) => order)
-    .catch(err => medusaError(err));
-};
-
-export const createReturnRequest = async (data: any) => {
-  const headers = {
-    ...(await getAuthHeaders()),
-    'Content-Type': 'application/json',
-    'x-publishable-api-key': process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY as string
-  };
-
-  const response = await fetch(`${process.env.MEDUSA_BACKEND_URL}/store/return-request`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(data)
-  })
-    .then(async res => await res.json())
-    .catch(err => medusaError(err));
-
-  return response;
-};
-
-export const getReturns = async () => {
-  const headers = await getAuthHeaders();
-
-  return sdk.client
-    .fetch<{
-      order_return_requests: Array<any>;
-    }>(`/store/return-request`, {
-      method: 'GET',
-      headers,
-      cache: 'force-cache',
-      query: { fields: '*line_items.reason_id' }
-    })
-    .then(res => res)
-    .catch(err => medusaError(err));
-};
-
-export const retriveReturnMethods = async (order_id: string) => {
-  const headers = await getAuthHeaders();
-
-  return sdk.client
-    .fetch<{
-      shipping_options: Array<any>;
-    }>(`/store/shipping-options/return?order_id=${order_id}`, {
-      method: 'GET',
-      headers,
-      cache: 'no-cache'
-    })
-    .then(({ shipping_options }) => shipping_options)
-    .catch(() => []);
-};
-
-export const listOrders = async (
-  limit: number = 10,
-  offset: number = 0,
-  filters?: Record<string, any>
-) => {
-  const headers = {
-    ...(await getAuthHeaders())
-  };
-
-  const next = {
-    ...(await getCacheOptions('orders'))
-  };
-
-  return sdk.client
-    .fetch<{
-      orders: Array<
-        HttpTypes.StoreOrder & {
-          seller: { id: string; name: string; reviews?: any[] };
-          reviews: any[];
-          order_set: { id: string };
-        }
-      >;
-    }>(`/store/orders`, {
-      method: 'GET',
-      query: {
-        limit,
-        offset,
-        order: '-created_at',
-        fields:
-          '*items,+items.metadata,*items.variant,*items.product,*seller,*reviews,*order_set,shipping_total,total,created_at',
-        ...filters
-      },
-      headers,
-      next,
-      cache: 'no-cache'
-    })
-    .then(({ orders }) => orders.filter(order => order.order_set))
-    .catch(err => medusaError(err));
-};
-
-export const createTransferRequest = async (
-  state: {
-    success: boolean;
-    error: string | null;
-    order: HttpTypes.StoreOrder | null;
-  },
-  formData: FormData
-): Promise<{
-  success: boolean;
-  error: string | null;
-  order: HttpTypes.StoreOrder | null;
-}> => {
-  const id = formData.get('order_id') as string;
-
-  if (!id) {
-    return { success: false, error: 'Order ID is required', order: null };
+  if (error) {
+    throw new Error(`Error creating order: ${error.message}`)
   }
 
-  const headers = await getAuthHeaders();
+  return order
+}
 
-  return await sdk.store.order
-    .requestTransfer(
-      id,
-      {},
-      {
-        fields: 'id, email'
-      },
-      headers
-    )
-    .then(({ order }) => ({ success: true, error: null, order }))
-    .catch(err => ({ success: false, error: err.message, order: null }));
-};
+export async function getOrderById(
+  id: string
+): Promise<Order | null> {
+  const { data, error } = await supabase
+    .from('orders')
+    .select('*')
+    .eq('id', id)
+    .single()
 
-export const acceptTransferRequest = async (id: string, token: string) => {
-  const headers = await getAuthHeaders();
+  if (error) {
+    if (error.code === 'PGRST116') return null
+    throw new Error(`Error fetching order: ${error.message}`)
+  }
 
-  return await sdk.store.order
-    .acceptTransfer(id, { token }, {}, headers)
-    .then(({ order }) => ({ success: true, error: null, order }))
-    .catch(err => ({ success: false, error: err.message, order: null }));
-};
+  return data
+}
 
-export const declineTransferRequest = async (id: string, token: string) => {
-  const headers = await getAuthHeaders();
+export async function listOrders(
+  params: ListOrdersParams = {}
+): Promise<ListOrdersResult> {
+  const { user_id, status, payment_status, page = 1, limit = 10 } = params
+  const from = (page - 1) * limit
+  const to = from + limit - 1
 
-  return await sdk.store.order
-    .declineTransfer(id, { token }, {}, headers)
-    .then(({ order }) => ({ success: true, error: null, order }))
-    .catch(err => ({ success: false, error: err.message, order: null }));
-};
+  let query = supabase
+    .from('orders')
+    .select('*', { count: 'exact' })
 
-export const retrieveReturnReasons = async () => {
-  const headers = await getAuthHeaders();
+  if (user_id) {
+    query = query.eq('user_id', user_id)
+  }
 
-  return sdk.client
-    .fetch<{
-      return_reasons: Array<HttpTypes.StoreReturnReason>;
-    }>(`/store/return-reasons`, {
-      method: 'GET',
-      headers,
-      cache: 'force-cache'
-    })
-    .then(({ return_reasons }) => return_reasons)
-    .catch(err => medusaError(err));
-};
+  if (status) {
+    query = query.eq('status', status)
+  }
+
+  if (payment_status) {
+    query = query.eq('payment_status', payment_status)
+  }
+
+  query = query
+    .order('created_at', { ascending: false })
+    .range(from, to)
+
+  const { data, error, count } = await query
+
+  if (error) {
+    throw new Error(`Error fetching orders: ${error.message}`)
+  }
+
+  return {
+    orders: data ?? [],
+    count: count ?? 0,
+  }
+}
+
+export async function updateOrderStatus(
+  id: string,
+  status: Order['status']
+): Promise<Order> {
+  const { data, error } = await supabase
+    .from('orders')
+    .update({ status })
+    .eq('id', id)
+    .select()
+    .single()
+
+  if (error) {
+    throw new Error(`Error updating order status: ${error.message}`)
+  }
+
+  return data
+}
+
+export async function updateOrder(
+  id: string,
+  updates: OrderUpdate
+): Promise<Order> {
+  const { data, error } = await supabase
+    .from('orders')
+    .update(updates)
+    .eq('id', id)
+    .select()
+    .single()
+
+  if (error) {
+    throw new Error(`Error updating order: ${error.message}`)
+  }
+
+  return data
+}

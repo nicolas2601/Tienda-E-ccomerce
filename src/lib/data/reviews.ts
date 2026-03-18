@@ -1,61 +1,110 @@
-'use server';
+'use server'
 
-import { HttpTypes } from '@medusajs/types';
-import { revalidatePath } from 'next/cache';
+import { supabase } from '@/lib/supabase'
+import type { Review, Database } from '@/types/database'
 
-import { fetchQuery } from '../config';
-import { getAuthHeaders } from './cookies';
+type ReviewInsert = Database['public']['Tables']['reviews']['Insert']
 
-export type Review = {
-  id: string;
-  seller: {
-    id: string;
-    name: string;
-    photo: string;
-  };
-  reference: string;
-  customer_note: string;
-  rating: number;
-  updated_at: string;
-};
+export interface ListReviewsParams {
+  product_id: string
+  page?: number
+  limit?: number
+  approved_only?: boolean
+}
 
-export type Order = HttpTypes.StoreOrder & {
-  seller: { id: string; name: string; reviews?: any[] };
-  reviews: any[];
-};
+export interface ListReviewsResult {
+  reviews: Review[]
+  count: number
+}
 
-const getReviews = async () => {
-  const headers = {
-    ...(await getAuthHeaders())
-  };
+export async function listReviews(
+  params: ListReviewsParams
+): Promise<ListReviewsResult> {
+  const { product_id, page = 1, limit = 10, approved_only = true } = params
+  const from = (page - 1) * limit
+  const to = from + limit - 1
 
-  const res = await fetchQuery('/store/reviews', {
-    headers,
-    method: 'GET',
-    query: { fields: '*seller,+customer.id,+order_id' }
-  });
+  let query = supabase
+    .from('reviews')
+    .select('*', { count: 'exact' })
+    .eq('product_id', product_id)
 
-  return res;
-};
+  if (approved_only) {
+    query = query.eq('is_approved', true)
+  }
 
-const createReview = async (review: any) => {
-  const headers = {
-    ...(await getAuthHeaders()),
-    'Content-Type': 'application/json',
-    'x-publishable-api-key': process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY as string
-  };
+  query = query
+    .order('created_at', { ascending: false })
+    .range(from, to)
 
-  const response = await fetch(`${process.env.MEDUSA_BACKEND_URL}/store/reviews`, {
-    headers,
-    method: 'POST',
-    body: JSON.stringify(review)
-  }).then(res => {
-    revalidatePath('/user/reviews');
-    revalidatePath('/user/reviews/written');
-    return res;
-  });
+  const { data, error, count } = await query
 
-  return response.json();
-};
+  if (error) {
+    throw new Error(`Error fetching reviews: ${error.message}`)
+  }
 
-export { getReviews, createReview };
+  return {
+    reviews: data ?? [],
+    count: count ?? 0,
+  }
+}
+
+export async function createReview(
+  data: ReviewInsert
+): Promise<Review> {
+  const { data: review, error } = await supabase
+    .from('reviews')
+    .insert(data)
+    .select()
+    .single()
+
+  if (error) {
+    throw new Error(`Error creating review: ${error.message}`)
+  }
+
+  return review
+}
+
+export async function getProductRating(
+  productId: string
+): Promise<{ average: number; count: number }> {
+  const { data, error } = await supabase
+    .from('reviews')
+    .select('rating')
+    .eq('product_id', productId)
+    .eq('is_approved', true)
+
+  if (error) {
+    throw new Error(`Error fetching product rating: ${error.message}`)
+  }
+
+  if (!data || data.length === 0) {
+    return { average: 0, count: 0 }
+  }
+
+  const total = data.reduce((sum, r) => sum + r.rating, 0)
+
+  return {
+    average: Math.round((total / data.length) * 10) / 10,
+    count: data.length,
+  }
+}
+
+export async function getUserReviewForProduct(
+  userId: string,
+  productId: string
+): Promise<Review | null> {
+  const { data, error } = await supabase
+    .from('reviews')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('product_id', productId)
+    .single()
+
+  if (error) {
+    if (error.code === 'PGRST116') return null
+    throw new Error(`Error fetching user review: ${error.message}`)
+  }
+
+  return data
+}

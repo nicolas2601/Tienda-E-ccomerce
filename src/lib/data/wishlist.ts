@@ -1,103 +1,85 @@
-'use server';
+'use server'
 
-import { revalidatePath } from 'next/cache';
+import { supabase } from '@/lib/supabase'
+import type { WishlistItem, Product } from '@/types/database'
 
-import { Wishlist } from '@/types/wishlist';
+export interface WishlistItemWithProduct extends WishlistItem {
+  product: Product
+}
 
-import { fetchQuery, sdk } from '../config';
-import { getAuthHeaders } from './cookies';
-import { getRegion } from "@/lib/data/regions"
+export async function getWishlist(
+  userId: string
+): Promise<WishlistItemWithProduct[]> {
+  const { data, error } = await supabase
+    .from('wishlist')
+    .select('*, product:products(*)')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
 
-export const getUserWishlists = async ({regionId, countryCode} : {regionId?: string, countryCode?: string}) => {
-  const headers = {
-    ...(await getAuthHeaders()),
-    'Content-Type': 'application/json',
-    'x-publishable-api-key': process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY as string
-  };
-
-  const query: Record<string, string> = {
-    fields: '+variants.calculated_price.*,+variants.currency_code'
-  };
-
-  let finalRegionId = regionId;
-
-  if (!finalRegionId && countryCode) {
-    const region = await getRegion(countryCode);
-    if (region) {
-      finalRegionId = region.id;
-    }
+  if (error) {
+    throw new Error(`Error fetching wishlist: ${error.message}`)
   }
 
-  if (finalRegionId) {
-    query.region_id = finalRegionId;
-  }
-  if (countryCode) {
-    query.country_code = countryCode;
-  }
+  return (data as WishlistItemWithProduct[]) ?? []
+}
 
-  return sdk.client
-    .fetch<Wishlist>(`/store/wishlist`, {
-      cache: 'no-cache',
-      headers,
-      method: 'GET',
-      query
-    })
-    .then(res => {
-      return res;
-    })
-    .catch(() => {
-      return { products: [] };
-    });
-};
+export async function addToWishlist(
+  userId: string,
+  productId: string
+): Promise<WishlistItem> {
+  const { data: existing } = await supabase
+    .from('wishlist')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('product_id', productId)
+    .single()
 
-export const addWishlistItem = async ({
-  reference_id,
-  reference
-}: {
-  reference_id: string;
-  reference: 'product';
-}) => {
-  const headers = {
-    ...(await getAuthHeaders())
-  };
-
-  const response = await fetchQuery('/store/wishlist', {
-    headers,
-    method: 'POST',
-    body: {
-      reference,
-      reference_id
-    }
-  })
-
-  revalidatePath('/wishlist');
-
-  if (!response.ok) {
-    throw new Error(response.error?.message || 'An error occured');
+  if (existing) {
+    return existing as WishlistItem
   }
 
-  return response;
-};
+  const { data, error } = await supabase
+    .from('wishlist')
+    .insert({ user_id: userId, product_id: productId })
+    .select()
+    .single()
 
-export const removeWishlistItem = async ({
-  product_id
-}: {
-  product_id: string;
-}) => {
-  const headers = {
-    ...(await getAuthHeaders())
-  };
-
-  const response = await fetchQuery(`/store/wishlist/product/${product_id}`, {
-    headers,
-    method: 'DELETE'
-  })
-
-  revalidatePath('/wishlist');
-
-  if (!response.ok) {
-    throw new Error(response.error?.message || 'An error occured');
+  if (error) {
+    throw new Error(`Error adding to wishlist: ${error.message}`)
   }
 
-  return response;
-};
+  return data
+}
+
+export async function removeFromWishlist(
+  userId: string,
+  productId: string
+): Promise<void> {
+  const { error } = await supabase
+    .from('wishlist')
+    .delete()
+    .eq('user_id', userId)
+    .eq('product_id', productId)
+
+  if (error) {
+    throw new Error(`Error removing from wishlist: ${error.message}`)
+  }
+}
+
+export async function isInWishlist(
+  userId: string,
+  productId: string
+): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('wishlist')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('product_id', productId)
+    .single()
+
+  if (error && error.code !== 'PGRST116') {
+    throw new Error(`Error checking wishlist: ${error.message}`)
+  }
+
+  return !!data
+}

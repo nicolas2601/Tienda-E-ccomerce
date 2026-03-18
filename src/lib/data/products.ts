@@ -1,294 +1,198 @@
-'use server';
+'use server'
 
-import { HttpTypes } from '@medusajs/types';
+import { supabase } from '@/lib/supabase'
+import type { Product } from '@/types/database'
 
-import { sortProducts } from '@/lib/helpers/sort-products';
-import { SortOptions } from '@/types/product';
-import { SellerProps } from '@/types/seller';
+export interface ListProductsParams {
+  page?: number
+  limit?: number
+  category_id?: string
+  subcategory_id?: string
+  sortBy?: 'price_asc' | 'price_desc' | 'newest' | 'name_asc'
+  search?: string
+  gender?: string
+  is_featured?: boolean
+  tags?: string[]
+}
 
-import { sdk } from '../config';
-import { getAuthHeaders } from './cookies';
-import { retrieveCustomer } from './customer';
-import { getRegion, retrieveRegion } from './regions';
+export interface ListProductsResult {
+  products: Product[]
+  count: number
+}
 
-export const listProducts = async ({
-  pageParam = 1,
-  queryParams,
-  countryCode,
-  regionId,
-  category_id,
-  collection_id,
-  forceCache = false
-}: {
-  pageParam?: number;
-  queryParams?: HttpTypes.FindParams &
-    HttpTypes.StoreProductParams & {
-      handle?: string[];
-    };
-  category_id?: string;
-  collection_id?: string;
-  countryCode?: string;
-  regionId?: string;
-  forceCache?: boolean;
-}): Promise<{
-  response: {
-    products: (HttpTypes.StoreProduct & { seller?: SellerProps })[];
-    count: number;
-  };
-  nextPage: number | null;
-  queryParams?: HttpTypes.FindParams & HttpTypes.StoreProductParams;
-}> => {
-  if (!countryCode && !regionId) {
-    throw new Error('Country code or region ID is required');
-  }
-
-  const limit = queryParams?.limit || 12;
-  const _pageParam = Math.max(pageParam, 1);
-  const offset = (_pageParam - 1) * limit;
-
-  let region: HttpTypes.StoreRegion | undefined | null;
-
-  if (countryCode) {
-    region = await getRegion(countryCode);
-  } else {
-    region = await retrieveRegion(regionId!);
-  }
-
-  if (!region) {
-    return {
-      response: { products: [], count: 0 },
-      nextPage: null
-    };
-  }
-
-  const headers = {
-    ...(await getAuthHeaders())
-  };
-
-  const useCached = forceCache || (limit <= 8 && !category_id && !collection_id);
-
-  return sdk.client
-    .fetch<{
-      products: (HttpTypes.StoreProduct & { seller?: SellerProps })[];
-      count: number;
-    }>(`/store/products`, {
-      method: 'GET',
-      query: {
-        country_code: countryCode,
-        category_id,
-        collection_id,
-        limit,
-        offset,
-        region_id: region?.id,
-        fields:
-          '*variants.calculated_price,+variants.inventory_quantity,*seller,*variants,*seller.products,' +
-          '*seller.reviews,*seller.reviews.customer,*seller.reviews.seller,*seller.products.variants,*attribute_values,*attribute_values.attribute',
-        ...queryParams
-      },
-      headers,
-      next: useCached ? { revalidate: 60 } : undefined,
-      cache: useCached ? 'force-cache' : 'no-cache'
-    })
-    .then(({ products: productsRaw, count }) => {
-      const products = productsRaw.filter(product => product.seller?.store_status !== 'SUSPENDED');
-
-      const nextPage = count > offset + limit ? pageParam + 1 : null;
-
-      const response = products.filter(prod => {
-        // @ts-ignore Property 'seller' exists but TypeScript doesn't recognize it
-        const reviews = prod.seller?.reviews.filter(item => !!item) ?? [];
-        return (
-          // @ts-ignore Property 'seller' exists but TypeScript doesn't recognize it
-          prod?.seller && {
-            ...prod,
-            seller: {
-              // @ts-ignore Property 'seller' exists but TypeScript doesn't recognize it
-              ...prod.seller,
-              reviews
-            }
-          }
-        );
-      });
-
-      return {
-        response: {
-          products: response,
-          count
-        },
-        nextPage: nextPage,
-        queryParams
-      };
-    })
-    .catch(() => {
-      return {
-        response: {
-          products: [],
-          count: 0
-        },
-        nextPage: 0,
-        queryParams
-      };
-    });
-};
-
-/**
- * This will fetch 100 products to the Next.js cache and sort them based on the sortBy parameter.
- * It will then return the paginated products based on the page and limit parameters.
- */
-export const listProductsWithSort = async ({
-  page = 1,
-  queryParams,
-  sortBy = 'created_at',
-  countryCode,
-  category_id,
-  seller_id,
-  collection_id
-}: {
-  page?: number;
-  queryParams?: HttpTypes.FindParams & HttpTypes.StoreProductParams;
-  sortBy?: SortOptions;
-  countryCode: string;
-  category_id?: string;
-  seller_id?: string;
-  collection_id?: string;
-}): Promise<{
-  response: {
-    products: HttpTypes.StoreProduct[];
-    count: number;
-  };
-  nextPage: number | null;
-  queryParams?: HttpTypes.FindParams & HttpTypes.StoreProductParams;
-}> => {
-  const limit = queryParams?.limit || 12;
-
+export async function listProducts(
+  params: ListProductsParams = {}
+): Promise<ListProductsResult> {
   const {
-    response: { products, count }
-  } = await listProducts({
-    pageParam: 0,
-    queryParams: {
-      ...queryParams,
-      limit: 100
-    },
+    page = 1,
+    limit = 12,
     category_id,
-    collection_id,
-    countryCode
-  });
+    subcategory_id,
+    sortBy = 'newest',
+    search,
+    gender,
+    is_featured,
+    tags,
+  } = params
 
-  const filteredProducts = seller_id
-    ? products.filter(product => product.seller?.id === seller_id)
-    : products;
+  const from = (page - 1) * limit
+  const to = from + limit - 1
 
-  const pricedProducts = filteredProducts.filter(prod =>
-    prod.variants?.some(variant => variant.calculated_price !== null)
-  );
+  let query = supabase
+    .from('products')
+    .select('*, category:categories!products_category_id_fkey(*)', { count: 'exact' })
+    .eq('is_active', true)
 
-  const sortedProducts = sortProducts(pricedProducts, sortBy);
+  if (category_id) {
+    query = query.eq('category_id', category_id)
+  }
 
-  const pageParam = (page - 1) * limit;
+  if (subcategory_id) {
+    query = query.eq('subcategory_id', subcategory_id)
+  }
 
-  const nextPage = count > pageParam + limit ? pageParam + limit : null;
+  if (search) {
+    query = query.or(`name.ilike.%${search}%,description.ilike.%${search}%`)
+  }
 
-  const paginatedProducts = sortedProducts.slice(pageParam, pageParam + limit);
+  if (gender) {
+    query = query.eq('gender', gender)
+  }
+
+  if (is_featured !== undefined) {
+    query = query.eq('is_featured', is_featured)
+  }
+
+  if (tags && tags.length > 0) {
+    query = query.overlaps('tags', tags)
+  }
+
+  switch (sortBy) {
+    case 'price_asc':
+      query = query.order('price', { ascending: true })
+      break
+    case 'price_desc':
+      query = query.order('price', { ascending: false })
+      break
+    case 'name_asc':
+      query = query.order('name', { ascending: true })
+      break
+    case 'newest':
+    default:
+      query = query.order('created_at', { ascending: false })
+      break
+  }
+
+  query = query.range(from, to)
+
+  const { data, error, count } = await query
+
+  if (error) {
+    throw new Error(`Error fetching products: ${error.message}`)
+  }
 
   return {
-    response: {
-      products: paginatedProducts,
-      count
-    },
-    nextPage,
-    queryParams
-  };
-};
+    products: (data as Product[]) ?? [],
+    count: count ?? 0,
+  }
+}
 
-export const searchProducts = async (params: {
-  query?: string;
-  page?: number;
-  hitsPerPage?: number;
-  filters?: string;
-  facets?: string[];
-  maxValuesPerFacet?: number;
-  currency_code?: string;
-  countryCode?: string;
-  region_id?: string;
-  customer_id?: string;
-  customer_group_id?: string[];
-}): Promise<{
-  products: (HttpTypes.StoreProduct & { seller?: SellerProps })[];
-  nbHits: number;
-  page: number;
-  nbPages: number;
-  hitsPerPage: number;
-  facets: Record<string, any>;
-  processingTimeMS: number;
-}> => {
-  if (!params.countryCode && !params.region_id) {
-    throw new Error('Country code or region ID is required');
+export async function getProductBySlug(
+  slug: string
+): Promise<Product | null> {
+  const { data, error } = await supabase
+    .from('products')
+    .select('*, category:categories!products_category_id_fkey(*)')
+    .eq('slug', slug)
+    .eq('is_active', true)
+    .single()
+
+  if (error) {
+    if (error.code === 'PGRST116') return null
+    throw new Error(`Error fetching product: ${error.message}`)
   }
 
-  let region_id = params.region_id;
+  return data as Product
+}
 
-  if (!region_id && params.countryCode) {
-    const region = await getRegion(params.countryCode);
-    if (!region) {
-      throw new Error(`Region not found for country code: ${params.countryCode}`);
-    }
-    region_id = region.id;
+export async function getProductById(
+  id: string
+): Promise<Product | null> {
+  const { data, error } = await supabase
+    .from('products')
+    .select('*, category:categories!products_category_id_fkey(*)')
+    .eq('id', id)
+    .eq('is_active', true)
+    .single()
+
+  if (error) {
+    if (error.code === 'PGRST116') return null
+    throw new Error(`Error fetching product: ${error.message}`)
   }
 
-  const headers = {
-    ...(await getAuthHeaders())
-  };
+  return data as Product
+}
 
-  let customer_id = params.customer_id;
+export async function getFeaturedProducts(
+  limit: number = 8
+): Promise<Product[]> {
+  const { data, error } = await supabase
+    .from('products')
+    .select('*, category:categories!products_category_id_fkey(*)')
+    .eq('is_active', true)
+    .eq('is_featured', true)
+    .order('created_at', { ascending: false })
+    .limit(limit)
 
-  if (!customer_id) {
-    const customer = await retrieveCustomer();
-    if (customer) {
-      customer_id = customer.id;
-    }
+  if (error) {
+    throw new Error(`Error fetching featured products: ${error.message}`)
   }
 
-  let facets = params.facets;
+  return (data as Product[]) ?? []
+}
 
-  if(!facets) {
-    facets = ["variants.condition", "variants.color", "variants.size"];
+export async function searchProducts(
+  query: string,
+  limit: number = 20
+): Promise<Product[]> {
+  const { data, error } = await supabase
+    .from('products')
+    .select('*, category:categories!products_category_id_fkey(*)')
+    .eq('is_active', true)
+    .or(`name.ilike.%${query}%,description.ilike.%${query}%,brand.ilike.%${query}%`)
+    .order('created_at', { ascending: false })
+    .limit(limit)
+
+  if (error) {
+    throw new Error(`Error searching products: ${error.message}`)
   }
 
-  const { countryCode, ...bodyParams } = params;
+  return (data as Product[]) ?? []
+}
 
-  return sdk.client
-    .fetch<{
-      products: (HttpTypes.StoreProduct & { seller?: SellerProps })[];
-      nbHits: number;
-      page: number;
-      nbPages: number;
-      hitsPerPage: number;
-      facets: Record<string, any>;
-      processingTimeMS: number;
-    }>(`/store/products/search`, {
-      method: 'POST',
-      body: {
-        ...bodyParams,
-        region_id,
-        customer_id,
-        facets,
-        maxValuesPerFacet: 100,
-      },
-      headers,
-      cache: 'no-cache'
-    })
-    .then((response) => {
-      return response;
-    })
-    .catch(() => {
-      return {
-        products: [],
-        nbHits: 0,
-        page: params.page || 0,
-        nbPages: 0,
-        hitsPerPage: params.hitsPerPage || 12,
-        facets: {},
-        processingTimeMS: 0
-      };
-    });
-};
+export async function getRelatedProducts(
+  productId: string,
+  categoryId: string | null,
+  limit: number = 4
+): Promise<Product[]> {
+  let query = supabase
+    .from('products')
+    .select('*, category:categories!products_category_id_fkey(*)')
+    .eq('is_active', true)
+    .neq('id', productId)
+    .limit(limit)
+
+  if (categoryId) {
+    query = query.eq('category_id', categoryId)
+  }
+
+  query = query.order('created_at', { ascending: false })
+
+  const { data, error } = await query
+
+  if (error) {
+    throw new Error(`Error fetching related products: ${error.message}`)
+  }
+
+  return (data as Product[]) ?? []
+}

@@ -1,62 +1,71 @@
-import { HttpTypes } from '@medusajs/types';
+'use server'
 
-import { sdk } from '@/lib/config';
+import { supabase } from '@/lib/supabase'
+import type { Category } from '@/types/database'
 
-interface CategoriesProps {
-  query?: Record<string, unknown>;
+export async function listCategories(): Promise<Category[]> {
+  const { data, error } = await supabase
+    .from('categories')
+    .select('*')
+    .eq('is_active', true)
+    .order('sort_order', { ascending: true, nullsFirst: false })
+
+  if (error) {
+    throw new Error(`Error fetching categories: ${error.message}`)
+  }
+
+  return data ?? []
 }
 
-export const listCategories = async ({ query }: Partial<CategoriesProps> = {}) => {
-  const limit = query?.limit || 100;
+export async function getCategoryBySlug(
+  slug: string
+): Promise<Category | null> {
+  const { data, error } = await supabase
+    .from('categories')
+    .select('*')
+    .eq('slug', slug)
+    .eq('is_active', true)
+    .single()
 
-  const allCategories = await sdk.client
-    .fetch<{
-      product_categories: HttpTypes.StoreProductCategory[];
-    }>('/store/product-categories', {
-      query: {
-        fields: 'id,handle,name,rank,metadata,parent_category_id,description,*category_children',
-        include_descendants_tree: true,
-        include_ancestors_tree: true,
-        limit,
-        ...query
-      },
-      cache: 'force-cache',
-      next: { revalidate: 3600 }
-    })
-    .then(({ product_categories }) => product_categories);
+  if (error) {
+    if (error.code === 'PGRST116') return null
+    throw new Error(`Error fetching category: ${error.message}`)
+  }
 
-  const parentCategories = allCategories.filter(cat => !cat.parent_category_id);
+  return data
+}
 
-  const mainCategories = parentCategories.flatMap(parent => parent.category_children || []);
+export async function getCategoryById(
+  id: string
+): Promise<Category | null> {
+  const { data, error } = await supabase
+    .from('categories')
+    .select('*')
+    .eq('id', id)
+    .eq('is_active', true)
+    .single()
 
-  const mainCategoriesWithChildren = mainCategories.map(mainCat => {
-    const children = allCategories.filter(cat => cat.parent_category_id === mainCat.id);
+  if (error) {
+    if (error.code === 'PGRST116') return null
+    throw new Error(`Error fetching category: ${error.message}`)
+  }
 
-    if (children.length > 0) {
-      return {
-        ...mainCat,
-        category_children: children
-      };
-    }
+  return data
+}
 
-    return mainCat;
-  });
+export async function listSubcategories(
+  parentId: string
+): Promise<Category[]> {
+  const { data, error } = await supabase
+    .from('categories')
+    .select('*')
+    .eq('parent_id', parentId)
+    .eq('is_active', true)
+    .order('sort_order', { ascending: true, nullsFirst: false })
 
-  return {
-    parentCategories,
-    categories: mainCategoriesWithChildren
-  };
-};
+  if (error) {
+    throw new Error(`Error fetching subcategories: ${error.message}`)
+  }
 
-export const getCategoryByHandle = async (categoryHandle: string) => {
-  return sdk.client
-    .fetch<HttpTypes.StoreProductCategoryListResponse>(`/store/product-categories`, {
-      query: {
-        fields: '*category_children',
-        handle: categoryHandle
-      },
-      cache: 'force-cache',
-      next: { revalidate: 300 }
-    })
-    .then(({ product_categories }) => product_categories[0]);
-};
+  return data ?? []
+}
