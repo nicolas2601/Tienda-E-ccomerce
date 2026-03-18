@@ -1,14 +1,15 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter, useParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import toast from 'react-hot-toast'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import type { Category, Product } from '@/types/database'
+import ImageUpload from '@/components/admin/ImageUpload'
+import type { Category } from '@/types/database'
 
 const productSchema = z.object({
   name: z.string().min(1, 'El nombre es obligatorio'),
@@ -26,7 +27,6 @@ const productSchema = z.object({
   material: z.string().nullable().optional(),
   brand: z.string().nullable().optional(),
   sku: z.string().min(1, 'El SKU es obligatorio'),
-  images: z.string().optional(),
   tags: z.string().optional(),
 })
 
@@ -41,24 +41,20 @@ function slugify(text: string): string {
     .replace(/(^-|-$)/g, '')
 }
 
-export default function EditarProductoPage() {
+export default function NuevoProductoPage() {
   const router = useRouter()
-  const params = useParams()
-  const productId = params.id as string
-
   const [categories, setCategories] = useState<Category[]>([])
   const [colors, setColors] = useState<{ name: string; hex: string }[]>([])
   const [colorName, setColorName] = useState('')
   const [colorHex, setColorHex] = useState('#000000')
   const [submitting, setSubmitting] = useState(false)
-  const [loading, setLoading] = useState(true)
+  const [productImages, setProductImages] = useState<string[]>([])
 
   const {
     register,
     handleSubmit,
     setValue,
     watch,
-    reset,
     formState: { errors },
   } = useForm<ProductFormValues>({
     resolver: zodResolver(productSchema),
@@ -73,46 +69,21 @@ export default function EditarProductoPage() {
   const nameValue = watch('name')
 
   useEffect(() => {
-    async function fetchData() {
-      const [productRes, categoriesRes] = await Promise.all([
-        supabase.from('products').select('*').eq('id', productId).single(),
-        supabase.from('categories').select('*').eq('is_active', true).order('name'),
-      ])
-
-      if (categoriesRes.data) setCategories(categoriesRes.data)
-
-      if (productRes.error) {
-        toast.error('Producto no encontrado')
-        router.push('/admin/productos')
-        return
-      }
-
-      const p = productRes.data as Product
-      reset({
-        name: p.name,
-        slug: p.slug,
-        description: p.description,
-        price: p.price,
-        compare_at_price: p.compare_at_price,
-        category_id: p.category_id,
-        sizes: p.sizes?.join(', ') ?? '',
-        stock: p.stock,
-        is_active: p.is_active,
-        is_featured: p.is_featured,
-        gender: p.gender,
-        age_group: p.age_group,
-        material: p.material,
-        brand: p.brand,
-        sku: p.sku,
-        images: p.images?.join(', ') ?? '',
-        tags: p.tags?.join(', ') ?? '',
-      })
-      setColors(p.colors ?? [])
-      setLoading(false)
+    if (nameValue) {
+      setValue('slug', slugify(nameValue))
     }
+  }, [nameValue, setValue])
 
-    fetchData()
-  }, [productId, reset, router])
+  useEffect(() => {
+    supabase
+      .from('categories')
+      .select('*')
+      .eq('is_active', true)
+      .order('name')
+      .then(({ data }) => {
+        if (data) setCategories(data)
+      })
+  }, [])
 
   const addColor = () => {
     if (!colorName.trim()) return
@@ -131,43 +102,38 @@ export default function EditarProductoPage() {
       const sizesArray = data.sizes
         ? data.sizes.split(',').map((s) => s.trim()).filter(Boolean)
         : []
-      const imagesArray = data.images
-        ? data.images.split(',').map((s) => s.trim()).filter(Boolean)
-        : []
+      const imagesArray = productImages
       const tagsArray = data.tags
         ? data.tags.split(',').map((s) => s.trim()).filter(Boolean)
         : []
 
-      const { error } = await supabase
-        .from('products')
-        .update({
-          name: data.name,
-          slug: data.slug,
-          description: data.description,
-          price: data.price,
-          compare_at_price: data.compare_at_price || null,
-          category_id: data.category_id || null,
-          sizes: sizesArray,
-          colors: colors,
-          stock: data.stock,
-          is_active: data.is_active,
-          is_featured: data.is_featured,
-          gender: data.gender || null,
-          age_group: data.age_group || null,
-          material: data.material || null,
-          brand: data.brand || null,
-          sku: data.sku,
-          images: imagesArray,
-          tags: tagsArray,
-        })
-        .eq('id', productId)
+      const { error } = await supabase.from('products').insert({
+        name: data.name,
+        slug: data.slug,
+        description: data.description,
+        price: data.price,
+        compare_at_price: data.compare_at_price || null,
+        category_id: data.category_id || null,
+        sizes: sizesArray,
+        colors: colors,
+        stock: data.stock,
+        is_active: data.is_active,
+        is_featured: data.is_featured,
+        gender: data.gender || null,
+        age_group: data.age_group || null,
+        material: data.material || null,
+        brand: data.brand || null,
+        sku: data.sku,
+        images: imagesArray,
+        tags: tagsArray,
+      })
 
       if (error) throw error
 
-      toast.success('Producto actualizado exitosamente')
+      toast.success('Producto creado exitosamente')
       router.push('/admin/productos')
     } catch (err: any) {
-      toast.error(err.message ?? 'Error actualizando producto')
+      toast.error(err.message ?? 'Error creando producto')
     } finally {
       setSubmitting(false)
     }
@@ -178,14 +144,6 @@ export default function EditarProductoPage() {
   const labelCls = 'mb-1 block text-sm font-medium text-gray-700'
   const errorCls = 'mt-1 text-xs text-red-600'
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <p className="text-gray-500">Cargando producto...</p>
-      </div>
-    )
-  }
-
   return (
     <div>
       <div className="mb-6 flex items-center gap-3">
@@ -195,7 +153,7 @@ export default function EditarProductoPage() {
         >
           &larr; Productos
         </Link>
-        <h1 className="text-2xl font-bold text-gray-900">Editar producto</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Nuevo producto</h1>
       </div>
 
       <form
@@ -377,13 +335,8 @@ export default function EditarProductoPage() {
 
         {/* Imagenes */}
         <div>
-          <label className={labelCls}>URLs de imagenes (separadas por coma)</label>
-          <textarea
-            {...register('images')}
-            rows={2}
-            placeholder="https://ejemplo.com/img1.jpg, https://ejemplo.com/img2.jpg"
-            className={inputCls}
-          />
+          <label className={labelCls}>Imagenes del producto</label>
+          <ImageUpload images={productImages} onChange={setProductImages} />
         </div>
 
         {/* Tags */}
@@ -429,7 +382,7 @@ export default function EditarProductoPage() {
             disabled={submitting}
             className="rounded-lg bg-pink-600 px-6 py-2 text-sm font-medium text-white transition-colors hover:bg-pink-700 disabled:opacity-50"
           >
-            {submitting ? 'Guardando...' : 'Guardar cambios'}
+            {submitting ? 'Guardando...' : 'Crear producto'}
           </button>
         </div>
       </form>

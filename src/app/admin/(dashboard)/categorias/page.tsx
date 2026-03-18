@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 
 export default async function AdminCategoriasPage() {
@@ -33,6 +34,7 @@ export default async function AdminCategoriasPage() {
                   <th className="px-6 py-3">Orden</th>
                   <th className="px-6 py-3">Activa</th>
                   <th className="px-6 py-3">Padre</th>
+                  <th className="px-6 py-3">Acciones</th>
                 </tr>
               </thead>
               <tbody>
@@ -64,6 +66,14 @@ export default async function AdminCategoriasPage() {
                         ? categories.find((c) => c.id === cat.parent_id)
                             ?.name ?? cat.parent_id.slice(0, 8)
                         : '—'}
+                    </td>
+                    <td className="px-6 py-3">
+                      <Link
+                        href={`/admin/categorias/${cat.id}/editar`}
+                        className="text-sm font-medium text-pink-600 hover:text-pink-700"
+                      >
+                        Editar
+                      </Link>
                     </td>
                   </tr>
                 ))}
