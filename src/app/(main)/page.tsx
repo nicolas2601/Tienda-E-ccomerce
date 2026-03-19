@@ -19,9 +19,9 @@ export async function generateMetadata(): Promise<Metadata> {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || `${protocol}://${host}`
 
   const siteName = process.env.NEXT_PUBLIC_SITE_NAME || 'GUAP@S'
-  const title = 'GUAP@S - Moda importada de Canada para toda la familia'
+  const title = 'GUAP@S - Tu estilo, nuestra pasion'
   const description =
-    'Tienda online de ropa y accesorios importados de Canada. Moda para mujer, hombre y ninos. Envios a toda Colombia.'
+    'Tienda online de ropa y accesorios para toda la familia. Looks exclusivos para mujer, hombre y ninos. Envios a toda Colombia.'
 
   return {
     title,
@@ -138,11 +138,11 @@ export default async function HomePage() {
             <div className="border rounded-sm w-full px-6 flex items-end h-[calc(100%-144px)]">
               <div>
                 <h2 className="font-bold mb-6 uppercase display-md max-w-[652px] text-4xl md:text-5xl leading-tight">
-                  Moda importada de Canada para toda la familia
+                  Tu estilo, nuestra pasion
                 </h2>
                 <p className="text-lg mb-8">
-                  Descubre nuestra coleccion de ropa y accesorios de las mejores
-                  marcas canadienses. Envios a toda Colombia.
+                  Looks exclusivos para toda la familia. Ropa y accesorios
+                  con envios a toda Colombia.
                 </p>
               </div>
             </div>

@@ -17,7 +17,15 @@ export default async function AdminCategoriasPage() {
 
   return (
     <div>
-      <h1 className="mb-6 text-2xl font-bold text-gray-900">Categorias</h1>
+      <div className="mb-6 flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-gray-900">Categorias</h1>
+        <Link
+          href="/admin/categorias/nuevo"
+          className="rounded-lg bg-pink-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-pink-700"
+        >
+          Agregar categoria
+        </Link>
+      </div>
 
       <div className="overflow-hidden rounded-xl border border-pink-100 bg-white shadow-sm">
         {!categories || categories.length === 0 ? (
