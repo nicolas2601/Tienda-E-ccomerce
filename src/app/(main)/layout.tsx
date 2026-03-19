@@ -22,7 +22,7 @@ function SiteHeader() {
         <Link href="/" className="text-2xl font-bold" data-testid="header-logo-link">
           <Image
             src="/Logo.svg"
-            width={126}
+            width={160}
             height={40}
             alt="GUAP@S"
             priority
