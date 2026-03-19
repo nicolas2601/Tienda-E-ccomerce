@@ -48,7 +48,6 @@ export default async function ProductosPage({
   searchParams: Promise<{
     page?: string
     categoria?: string
-    genero?: string
     talla?: string
     q?: string
   }>
@@ -87,10 +86,6 @@ export default async function ProductosPage({
     }
   }
 
-  if (params.genero) {
-    query = query.eq('gender', params.genero)
-  }
-
   if (params.talla) {
     query = query.contains('sizes', [params.talla])
   }
@@ -117,7 +112,6 @@ export default async function ProductosPage({
   const buildFilterUrl = (key: string, value: string) => {
     const current = new URLSearchParams()
     if (params.categoria) current.set('categoria', params.categoria)
-    if (params.genero) current.set('genero', params.genero)
     if (params.talla) current.set('talla', params.talla)
     if (params.q) current.set('q', params.q)
 
@@ -192,30 +186,13 @@ export default async function ProductosPage({
                 </ul>
               </div>
             )}
-
-            {/* Gender Filter */}
-            <div>
-              <h3 className="font-bold text-sm uppercase mb-2">Genero</h3>
-              <ul className="space-y-1">
-                {['mujer', 'hombre', 'ninos', 'unisex'].map((g) => (
-                  <li key={g}>
-                    <Link
-                      href={buildFilterUrl('genero', g)}
-                      className={`text-sm hover:underline capitalize ${params.genero === g ? 'font-bold' : ''}`}
-                    >
-                      {g === 'ninos' ? 'Ninos' : g.charAt(0).toUpperCase() + g.slice(1)}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
           </div>
         </aside>
 
         {/* Product Grid */}
         <div className="flex-1">
           {/* Active filters */}
-          {(params.categoria || params.genero || params.talla || params.q) && (
+          {(params.categoria || params.talla || params.q) && (
             <div className="flex flex-wrap gap-2 mb-4">
               {params.q && (
                 <Link
@@ -231,15 +208,6 @@ export default async function ProductosPage({
                   className="inline-flex items-center gap-1 bg-gray-100 px-3 py-1 rounded-full text-sm"
                 >
                   Categoria: {params.categoria}{' '}
-                  <span className="text-gray-500">x</span>
-                </Link>
-              )}
-              {params.genero && (
-                <Link
-                  href={buildFilterUrl('genero', params.genero)}
-                  className="inline-flex items-center gap-1 bg-gray-100 px-3 py-1 rounded-full text-sm"
-                >
-                  Genero: {params.genero}{' '}
                   <span className="text-gray-500">x</span>
                 </Link>
               )}
@@ -334,7 +302,7 @@ export default async function ProductosPage({
                 <Link
                   href={`/productos?${new URLSearchParams({
                     ...(params.categoria ? { categoria: params.categoria } : {}),
-                    ...(params.genero ? { genero: params.genero } : {}),
+
                     ...(params.talla ? { talla: params.talla } : {}),
                     ...(params.q ? { q: params.q } : {}),
                     page: String(page - 1),
@@ -361,7 +329,7 @@ export default async function ProductosPage({
                         ...(params.categoria
                           ? { categoria: params.categoria }
                           : {}),
-                        ...(params.genero ? { genero: params.genero } : {}),
+    
                         ...(params.talla ? { talla: params.talla } : {}),
                         ...(params.q ? { q: params.q } : {}),
                         page: String(p),
@@ -380,7 +348,7 @@ export default async function ProductosPage({
                 <Link
                   href={`/productos?${new URLSearchParams({
                     ...(params.categoria ? { categoria: params.categoria } : {}),
-                    ...(params.genero ? { genero: params.genero } : {}),
+
                     ...(params.talla ? { talla: params.talla } : {}),
                     ...(params.q ? { q: params.q } : {}),
                     page: String(page + 1),

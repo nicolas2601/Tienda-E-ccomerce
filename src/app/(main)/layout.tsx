@@ -111,28 +111,16 @@ function SiteFooter() {
             <h3 className="font-bold text-sm uppercase mb-4">Tienda</h3>
             <nav className="space-y-2" aria-label="Enlaces de la tienda">
               <Link
+                href="/"
+                className="block text-sm text-gray-600 hover:underline"
+              >
+                Inicio
+              </Link>
+              <Link
                 href="/productos"
                 className="block text-sm text-gray-600 hover:underline"
               >
-                Todos los productos
-              </Link>
-              <Link
-                href="/categorias/mujer"
-                className="block text-sm text-gray-600 hover:underline"
-              >
-                Mujer
-              </Link>
-              <Link
-                href="/categorias/hombre"
-                className="block text-sm text-gray-600 hover:underline"
-              >
-                Hombre
-              </Link>
-              <Link
-                href="/categorias/ninos"
-                className="block text-sm text-gray-600 hover:underline"
-              >
-                Ninos
+                Productos
               </Link>
               <Link
                 href="/categorias/ofertas"

@@ -65,31 +65,18 @@ export default async function HomePage() {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || `${protocol}://${host}`
   const siteName = process.env.NEXT_PUBLIC_SITE_NAME || 'GUAP@S'
 
-  console.log('[HOME] Supabase URL:', process.env.NEXT_PUBLIC_SUPABASE_URL ? 'SET' : 'MISSING')
-  console.log('[HOME] Supabase Key:', process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? 'SET' : 'MISSING')
-
-  const { data: featuredProducts, error: productsError } = await supabase
+  const { data: featuredProducts } = await supabase
     .from('products')
     .select('*, category:categories!products_category_id_fkey(*)')
     .eq('is_active', true)
     .eq('is_featured', true)
     .limit(8)
 
-  if (productsError) {
-    console.error('[HOME] Products error:', JSON.stringify(productsError))
-  }
-  console.log('[HOME] Featured products count:', featuredProducts?.length ?? 'null')
-
-  const { data: categories, error: categoriesError } = await supabase
+  const { data: categories } = await supabase
     .from('categories')
     .select('*')
     .eq('is_active', true)
     .order('sort_order')
-
-  if (categoriesError) {
-    console.error('[HOME] Categories error:', JSON.stringify(categoriesError))
-  }
-  console.log('[HOME] Categories count:', categories?.length ?? 'null')
 
   return (
     <main className="flex flex-col gap-8 items-center text-primary">
