@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import Image from 'next/image'
+import SearchBar from '@/components/SearchBar'
 
 export default function MainLayout({
   children,
@@ -48,6 +49,9 @@ function SiteHeader() {
         </nav>
 
         <div className="flex items-center gap-4">
+          <div className="hidden md:block">
+            <SearchBar />
+          </div>
           <Link
             href="/carrito"
             className="relative flex items-center gap-1 text-sm font-medium"
@@ -90,6 +94,9 @@ function SiteHeader() {
           Ofertas
         </Link>
       </nav>
+      <div className="md:hidden px-4 py-2 border-t">
+        <SearchBar />
+      </div>
     </header>
   )
 }

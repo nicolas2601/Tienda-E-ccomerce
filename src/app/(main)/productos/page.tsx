@@ -145,21 +145,6 @@ export default async function ProductosPage({
         {/* Sidebar Filters */}
         <aside className="lg:w-64 shrink-0">
           <div className="sticky top-4 space-y-6">
-            {/* Search */}
-            <form action="/productos" method="GET">
-              <label htmlFor="search" className="block font-bold text-sm uppercase mb-2">
-                Buscar
-              </label>
-              <input
-                type="text"
-                id="search"
-                name="q"
-                defaultValue={params.q || ''}
-                placeholder="Buscar productos..."
-                className="w-full border rounded px-3 py-2 text-sm"
-              />
-            </form>
-
             {/* Categories */}
             {categories && categories.length > 0 && (
               <div>
