@@ -13,7 +13,7 @@ const formatCOP = (price: number) =>
     minimumFractionDigits: 0,
   }).format(price)
 
-export const revalidate = 60
+export const dynamic = 'force-dynamic'
 
 export async function generateMetadata({
   params,
