@@ -4,7 +4,16 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import type { Product } from '@/types/database'
+
+interface SearchResult {
+  id: string
+  name: string
+  slug: string
+  price: number
+  compare_at_price: number | null
+  images: string[]
+  category: { name: string } | null
+}
 
 const formatCOP = (price: number) =>
   new Intl.NumberFormat('es-CO', {
@@ -15,7 +24,7 @@ const formatCOP = (price: number) =>
 
 export default function SearchBar() {
   const [query, setQuery] = useState('')
-  const [results, setResults] = useState<Product[]>([])
+  const [results, setResults] = useState<SearchResult[]>([])
   const [isOpen, setIsOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -46,7 +55,7 @@ export default function SearchBar() {
       .limit(6)
 
     if (!error && data) {
-      setResults(data as Product[])
+      setResults(data as unknown as SearchResult[])
       setIsOpen(true)
     }
     setIsLoading(false)
